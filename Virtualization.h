@@ -33,12 +33,6 @@ cv::Mat DepthImageRGB(const cv::Mat& depth_map, const float max_depth = -1, cons
 cv::Mat CombineDepthWithRGB(const cv::Mat& depth_image, const cv::Mat& rgb_image, 
                             const float max_depth = 10, const float min_depth = 0);
 
-bool CameraPoseVisualize(const string& plyfile, const eigen_vector<Eigen::Matrix3d>& R_wc_list, 
-                        const eigen_vector<Eigen::Vector3d>& t_wc_list);
-
-bool CameraCenterPCD(const string& file_name,
-                    const eigen_vector<Eigen::Vector3d>& t_wc_list);
-
 void SaveDepthImageRaw(const cv::Mat& depth_image, const std::string file_path);
 
 /**

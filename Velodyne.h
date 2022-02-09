@@ -1,7 +1,7 @@
 /*
  * @author: TuDian tao
  * @Date: 2021-04-25 10:28:53
- * @LastEditTime: 2022-02-09 15:06:05
+ * @LastEditTime: 2022-02-09 15:36:54
  */
 
 
@@ -49,6 +49,7 @@ public:
     pcl::PointCloud<pcl::PointXYZI>::Ptr cloud;  // 从文件读取的雷达数据
     
     pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_scan;   // 把雷达数据按scan排序
+    pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_discontinuity;   // 深度不连续性
 
     int id;
     

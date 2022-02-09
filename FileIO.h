@@ -15,7 +15,6 @@
 #include <glog/logging.h>
 #include <omp.h>
 #include "common.h"
-#include "MatchPair.h"
 #include "Frame.h"
 
 // 字符串分割
@@ -39,12 +38,5 @@ void ReadPoseQt(std::string file_path, eigen_vector<Eigen::Matrix3d>& rotation_l
 void ExportPoseT(const std::string file_path, const std::vector<Eigen::Matrix3d, Eigen::aligned_allocator<Eigen::Matrix3d>>& rotation_list,
                 const std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>& trans_list,
                 const std::vector<std::string>& name_list);
-// 以二进制形式保存match pair到指定路径
-bool ExportMatchPair(const std::string folder, const std::vector<MatchPair>& pairs);
-// 读取指定路径下的二进制形式保存的match pair
-bool ReadMatchPair(const std::string folder, std::vector<MatchPair>& pairs);
 
-bool ExportFrame(const std::string folder, const std::vector<Frame>& frames);
-
-bool ReadFrames(const std::string frame_folder, const std::string image_folder, std::vector<Frame>& frames);
 #endif

@@ -3,7 +3,7 @@
  * @Date: 2021-11-04 19:11:48
  */
 
-#include "../include/common.h"
+#include "common.h"
 
 using namespace std;
 

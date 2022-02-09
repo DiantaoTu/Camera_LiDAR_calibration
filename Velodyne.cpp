@@ -121,7 +121,6 @@ pcl::PointCloud<pcl::PointXYZI> Velodyne::removeClosedPointCloud(float threshold
 // 对点云进行重新排序，从A-LOAM里抄的
 void Velodyne::ReOrderVLP()
 {
-    
     scanStartInd.clear();
     scanEndInd.clear();
     std::vector<pcl::PointCloud<PointType>> laserCloudScans(N_SCANS);
@@ -287,7 +286,7 @@ void Velodyne::ReOrderVLP()
 
 
 // 提取特征点，只提取每条扫描线上的深度不连续的点
-void Velodyne::ExtractFeatures(float max_curvature, float intersect_angle_threshold, bool double_extract)
+void Velodyne::ExtractFeatures()
 {
     if(cloud_scan->empty())
     {
@@ -345,6 +344,20 @@ void Velodyne::SetName(std::string _name)
     name = _name;
 }
 
+void Velodyne::SaveFeatures(std::string path)
+{
+    string base_name(name);
+    base_name = base_name.substr(0, base_name.rfind('.'));  // aaa/bbb/ccc.pcd -> aaa/bbb/ccc
+    base_name = base_name.substr(base_name.rfind('/') + 1); // aaa/bbb/ccc -> ccc
 
+    if(!cloud_scan->points.empty())
+    {
+        pcl::io::savePCDFile(path + base_name + "_cloud_scan.pcd", *cloud_scan);
+    }
+    if(!cloud_discontinuity->points.empty())
+    {
+        pcl::io::savePCDFile(path + base_name + "_cloud_edge.pcd", *cloud_discontinuity);
+    }
+}
 
 

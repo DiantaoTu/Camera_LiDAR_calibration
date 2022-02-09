@@ -1,7 +1,7 @@
 /*
  * @author: TuDian tao
  * @Date: 2021-04-25 10:28:53
- * @LastEditTime: 2022-02-09 15:36:54
+ * @LastEditTime: 2022-02-09 16:18:44
  */
 
 
@@ -83,16 +83,12 @@ public:
     void ReOrderVLP();		
     // 对输入的雷达点重新按照scan进行排序,目前用于华为的地下车库数据
     void ReOrder();         
-    /**
-     * @description: 提取特征点，
-     * @param max_curvature {float} 曲率的上限，超过这值就视为不可靠，这个值最好大一些
-     * @param intersect_angle_threshold {float} 雷达和局部平面夹角，小于这个视为不可靠，这个值最好小一些
-     * @param double_extract {bool} 是否使用使用两种参数进行边缘提取然后联合起来
-     * @return {*}
-     */    
-    void ExtractFeatures(float max_curvature = 50, float intersect_angle_threshold = 5, bool double_extract = true);	
+    // 提取特征点  
+    void ExtractFeatures();	
     // 设置雷达的名字，也就是对应的雷达点云保存的位置
     void SetName(std::string name);
+    // 保存特征点到本地，用于debug
+    void SaveFeatures(std::string path);
 
 };
 

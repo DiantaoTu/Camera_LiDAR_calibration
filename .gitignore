@@ -1,1 +1,5 @@
-build
+build*
+*.jpg
+*.png
+*.ply
+logs

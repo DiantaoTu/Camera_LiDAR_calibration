@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "cpp - 生成和调试活动文件",
+            "name": "debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileDirname}/build/camera_LiDAR_calibration",
+            "program": "${workspaceFolder}/build_debug/camera_LiDAR_calibration",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -22,7 +22,28 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "cmake",
+            "preLaunchTask": "debug",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "release",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build_release/camera_LiDAR_calibration",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "release",
             "miDebuggerPath": "/usr/bin/gdb"
         }
     ]

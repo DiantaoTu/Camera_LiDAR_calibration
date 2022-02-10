@@ -97,14 +97,14 @@ cv::Mat ProjectLidar2ImageGray(const pcl::PointCloud<T> cloud, const cv::Mat ima
  * @return {cv::Mat} 投影结果
  */
 template<typename T>
-cv::Mat ProjectLidar2ImageRGB(const pcl::PointCloud<T> cloud, const cv::Mat image, 
+cv::Mat ProjectLidar2ImageRGB(const pcl::PointCloud<T> cloud, const cv::Mat& image, 
                         const Eigen::Matrix3f K, const Eigen::Matrix4f T_cl, 
                         const float min_depth = 0,const float max_depth = 10)
 {
     cv::Mat img_out;
     if(image.channels() == 3)
         img_out = image.clone();
-    if(image.channels() == 1)
+    else if(image.channels() == 1)
     {
         vector<cv::Mat> images = {image, image, image};
         cv::merge(images, img_out);

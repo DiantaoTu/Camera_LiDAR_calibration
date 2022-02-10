@@ -29,7 +29,7 @@ public:
 
     Frame(std::string _name, int _id);
     bool EdgeFilter();
-    bool InverseDistanceTransform();
+    bool InverseDistanceTransform(const int max_half_window_size, const int min_half_window_size);
     cv::Mat GetImageGray() const;
     cv::Mat GetImageColor() const;
     const cv::Mat& GetImageEdge() const;

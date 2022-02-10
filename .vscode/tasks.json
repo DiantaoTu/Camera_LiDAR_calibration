@@ -2,13 +2,24 @@
     "tasks": [
         {
             "type": "shell",
-            "label": "cmake",
+            "label": "debug",
             "command": "cmake -DCMAKE_BUILD_TYPE=Debug .. && make -j4",
             "args": [
             
             ],
             "options": {
-                "cwd": "${workspaceFolder}/build"
+                "cwd": "${workspaceFolder}/build_debug"
+            }
+        },
+        {
+            "type": "shell",
+            "label": "release",
+            "command": "cmake -DCMAKE_BUILD_TYPE=Release .. && make -j4",
+            "args": [
+            
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/build_release"
             }
         }
     ],

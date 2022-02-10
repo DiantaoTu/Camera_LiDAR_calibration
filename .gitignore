@@ -2,6 +2,7 @@ build*
 *.jpg
 *.png
 *.ply
-logs
+log
+*.xml
 *.txt
 !CMakeLists.txt

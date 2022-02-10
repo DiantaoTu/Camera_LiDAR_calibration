@@ -9,13 +9,19 @@
 #include "common.h"
 #include "Velodyne.h"
 #include "Frame.h"
+#include "Calibrate.h"
 
 using namespace std;
+
+// 设置log所在的路径
+void SetLog(string log_path);
 
 int main(int argc, char** argv)
 {
     string lidar_data_path = "/home/tdt/Data_tdt/kitti_00/images/lidar/";
     string image_data_path = "/home/tdt/Data_tdt/kitti_00/images/image_2/";
+    string log_path = "./log/";
+    SetLog(log_path);
 
     vector<string> lidar_names, image_names;
     IterateFiles(lidar_data_path, lidar_names, ".pcd");
@@ -23,28 +29,12 @@ int main(int argc, char** argv)
     IterateFiles(image_data_path, image_names, ".png");
     sort(image_names.begin(), image_names.end(), FileNameComp);
 
-    // for(int i = 0; i < lidar_names.size(); i++)
-    // {
-    //     Velodyne lidar(64, i);
-    //     lidar.LoadLidar(lidar_names[i]);
-    //     lidar.ReOrderVLP();
-    //     lidar.ExtractFeatures();
-    //     lidar.SaveFeatures("./");
-    // }
+    
 
     // 两个计时器
     auto t1 = chrono::high_resolution_clock::now();
     auto t2 = chrono::high_resolution_clock::now();
-    // t1 = chrono::high_resolution_clock::now();
-    // for(int i = 0; i < image_names.size(); i++)
-    // {
-    //     Frame frame(image_names[i], i);
-    //     frame.EdgeFilter();
-    //     frame.InverseDistanceTransform(100, 3);
-    //     break;
-    // }
-    // t2 = chrono::high_resolution_clock::now();
-    // cout << "time spent: " << chrono::duration_cast<chrono::duration<double> >(t2 - t1).count() << " s" << endl;
+    
 
     // 相机内参
     Eigen::Matrix3f K;
@@ -64,6 +54,58 @@ int main(int argc, char** argv)
         << angleAxis_cl.angle() << endl;
     cout << t_cl.transpose() << endl;
 
-    
+    vector<Frame> frames;
+    for(int i = 0; i < image_names.size(); i++)
+    {
+        if(i >= 200)
+            break;
+        Frame f(image_names[i], i, K);
+        frames.push_back(f);
+        
+    }
+    vector<Velodyne> lidars;
+    for(int i = 0; i < lidar_names.size(); i++)
+    {
+        if(i >= 200)
+            break;
+        Velodyne l(64, i);
+        l.SetName(lidar_names[i]);
+        lidars.push_back(l);
+        
+    }
 
+    Calibrate calib(frames, lidars, 1);
+    calib.SetInitCalibration(T_cl);
+
+    calib.ExtractLidarFeatures();
+
+    calib.ExtractImageFeatures();
+    calib.SaveEdgeImage("./edge_images/");
+    calib.LoadEdgeImage("./edge_images/");
+    return 0;
+
+    calib.StartCalibration();
+    // t1 = chrono::high_resolution_clock::now();
+    // for(int i = 0; i < image_names.size(); i++)
+    // {
+    //     Frame frame(image_names[i], i);
+    //     frame.EdgeFilter();
+    //     frame.InverseDistanceTransform(100, 3);
+    //     break;
+    // }
+    // t2 = chrono::high_resolution_clock::now();
+    // cout << "time spent: " << chrono::duration_cast<chrono::duration<double> >(t2 - t1).count() << " s" << endl;
+
+    return 0;
+}
+
+void SetLog(string log_path)
+{
+    if(!boost::filesystem::exists(log_path))
+        boost::filesystem::create_directories(log_path);
+    google::InitGoogleLogging("Mapping");
+    google::SetLogDestination(google::GLOG_INFO, log_path.c_str());
+    google::SetStderrLogging(google::GLOG_INFO);
+    FLAGS_logbufsecs = 0;
+    LOG(INFO) << "Save log file at " << log_path;
 }

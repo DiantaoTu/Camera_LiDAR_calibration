@@ -5,7 +5,7 @@
 #include "Frame.h"
 
 using namespace std;
-Frame::Frame(std::string _name, int _id):name(_name),id(_id)
+Frame::Frame(std::string _name, int _id, Eigen::Matrix3f _K):name(_name),id(_id),K(_K)
 {
 }
 
@@ -77,6 +77,8 @@ bool Frame::InverseDistanceTransform(const int max_half_window_size, const int m
     }
     // 可视化 idt 之后的结果
     cv::imwrite("./idt_image.png", DepthImageRGB(img_idt, 255, 0));
+    // 更新idt的结果
+    img_edge = img_idt;
     return true;
 }
 
@@ -92,6 +94,34 @@ std::vector<int> Frame::GetWindowBorder(const int half_window_size, const int ce
     return border;
 }
 
+cv::Point2i Frame::Camera2Imagei(const Eigen::Vector3f& p)
+{
+    Eigen::Vector3f p_img = K * p;
+    if(p_img.z() < 0)
+        return cv::Point2i(-1, -1);
+    p_img /= p_img.z();
+    cv::Point2i pt(round(p_img.x()), round(p_img.y()));
+    // 判断点是否落在图像内
+    if(pt.x >= 0 && pt.x < img_edge.cols && pt.y >= 0 && pt.y < img_edge.rows)
+        return pt;
+    else 
+        return cv::Point2i(-1, -1);
+}
+
+cv::Point2f Frame::Camera2Imagef(const Eigen::Vector3f& p)
+{
+    Eigen::Vector3f p_img = K * p;
+    if(p_img.z() < 0)
+        return cv::Point2f(-1, -1);
+    p_img /= p_img.z();
+    cv::Point2f pt(p_img.x(), p_img.y());
+    // 判断点是否落在图像内
+    if(pt.x >= 0 && pt.x < img_edge.cols && pt.y >= 0 && pt.y < img_edge.rows)
+        return pt;
+    else 
+        return cv::Point2f(-1, -1);
+}
+
 cv::Mat Frame::GetImageColor() const
 {
     return cv::imread(name);
@@ -105,6 +135,27 @@ cv::Mat Frame::GetImageGray() const
 const cv::Mat& Frame::GetImageEdge() const 
 {
     return img_edge;
+}
+
+const void Frame::SaveEdgeImage(std::string path) const
+{
+    string base = name;         //  /aaa/bbb/ccc.png
+    base = base.substr(base.find_last_of('/') + 1);     // ccc.png
+    base = base.substr(0, base.find_last_of('.'));      // ccc
+    base += ".xml";
+    cv::FileStorage fs(path + "/" + base, cv::FileStorage::WRITE);
+    fs << "test" << img_edge;
+    fs.release();
+    // cv::imwrite("./edge_image_write.png", DepthImageRGB(img_edge, 255, 0));
+}
+
+bool Frame::LoadEdgeImage(std::string path)
+{
+    cv::FileStorage fs(path, cv::FileStorage::READ);
+    fs["test"] >> img_edge;
+    fs.release();
+    // cv::imwrite("./edge_image_read.png", DepthImageRGB(img_edge, 255, 0));
+    return true;
 }
 
 Frame::~Frame()

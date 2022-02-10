@@ -18,7 +18,7 @@ cv::Vec3b Gray2Color(uchar gray)
     //     pixel[1] = 0;
     //     pixel[2] = 0;
     // }
-     if (gray <= 51)
+    if (gray <= 51)
     {
         pixel[0] = 255;
         pixel[1] = gray * 5;

@@ -23,13 +23,20 @@ int main(int argc, char** argv)
     IterateFiles(image_data_path, image_names, ".png");
     sort(image_names.begin(), image_names.end(), FileNameComp);
 
-    for(int i = 0; i < lidar_names.size(); i++)
+    // for(int i = 0; i < lidar_names.size(); i++)
+    // {
+    //     Velodyne lidar(64, i);
+    //     lidar.LoadLidar(lidar_names[i]);
+    //     lidar.ReOrderVLP();
+    //     lidar.ExtractFeatures();
+    //     lidar.SaveFeatures("./");
+    // }
+
+    for(int i = 0; i < image_names.size(); i++)
     {
-        Velodyne lidar(64, i);
-        lidar.LoadLidar(lidar_names[i]);
-        lidar.ReOrderVLP();
-        lidar.ExtractFeatures();
-        lidar.SaveFeatures("./");
+        Frame frame(image_names[i], i);
+        frame.EdgeFilter();
+        frame.InverseDistanceTransform();
     }
 
 }

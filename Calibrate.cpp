@@ -21,12 +21,15 @@ bool Calibrate::ExtractImageFeatures()
         LOG(ERROR) << "Frames are empty";
         return false;
     }
+    // 因为提取特征比较慢，所以弄了个简易进度条来显示进度
+    ProcessBar bar(frames.size(), 0.2);
     omp_set_num_threads(11);
     #pragma omp parallel for schedule(dynamic)
     for(Frame& f : frames)
     {
         f.EdgeFilter();
         f.InverseDistanceTransform(120, 3);
+        bar.Add();
     }
     return true;
 }
@@ -47,7 +50,6 @@ bool Calibrate::ExtractLidarFeatures()
             lidars[i].LoadLidar(lidars[i].name);
         lidars[i].ReOrderVLP();
         lidars[i].ExtractFeatures();
-
     }
     return true;
 }
@@ -152,14 +154,15 @@ eigen_vector<Eigen::Matrix4f> Calibrate::PerturbCalibration(const Eigen::Matrix4
     return perturbed1;
 }
 
-double Calibrate::ComputeJc(const pcl::PointCloud<pcl::PointXYZI>& cloud, const Frame& frame, const Eigen::Matrix4f& T_cl)
+double Calibrate::ComputeJc(const pcl::PointCloud<pcl::PointXYZI>& cloud, Frame& frame, const Eigen::Matrix4f& T_cl)
 {
     double Jc = 0;
     const cv::Mat img_edge = frame.GetImageEdge();
-    for(const pcl::PointXYZI& p : cloud.points)
+    pcl::PointCloud<pcl::PointXYZI> cloud_cam;
+    pcl::transformPointCloud(cloud, cloud_cam, T_cl);
+    for(const pcl::PointXYZI& p : cloud_cam.points)
     {
-        Eigen::Vector3f pt_lidar(p.x, p.y, p.z);
-        Eigen::Vector3f pt_cam = (T_cl * pt_lidar.homogeneous()).hnormalized();
+        Eigen::Vector3f pt_cam(p.x, p.y, p.z);
         cv::Point2i pt_pixel = frame.Camera2Imagei(pt_cam);
         // 小于0说明不在图像范围内
         if(pt_pixel.x < 0)
@@ -169,6 +172,9 @@ double Calibrate::ComputeJc(const pcl::PointCloud<pcl::PointXYZI>& cloud, const 
     return Jc;
 }
 
+// 根据Fc计算是正确的外参的可能性，论文中的公式4
+// 但是这个公式有个问题，概率最大不是1，而是0.5，此时的Fc=1.002
+// 当Fc = 0时，结果为0.437
 double Calibrate::CorrectProbability(double Fc)
 {
     double mu1 = 0.997;
@@ -182,33 +188,102 @@ double Calibrate::CorrectProbability(double Fc)
 
 bool Calibrate::StartCalibration()
 {
-    double best_Jc = 0;
-    // 所有的Jc, 初始化为全0
-    vector<double> Jc_list(0, 728);
+    const int max_iteration = 10;
+    final_T_cl = init_T_cl;
+    cv::Mat depth_image = ProjectLidar2ImageRGB(*lidars[0].cloud_discontinuity, 
+            frames[0].GetImageGray(), frames[0].GetIntrinsic(), init_T_cl, 0, 50);
+    cv::imwrite("edge_init.png", depth_image);
+    cv::imwrite("cloud_init.png", ProjectLidar2ImageRGB(*lidars[0].cloud, 
+            frames[0].GetImageGray(), frames[0].GetIntrinsic(), init_T_cl, 0, 50));
     
-    Eigen::Matrix4f best_calibration = Eigen::Matrix4f::Identity();
-    // 对外参进行扰动，扰动的结果中，第一个是没有经过扰动的
-    eigen_vector<Eigen::Matrix4f> perturb = PerturbCalibration(init_T_cl, 0.3, 0.02);
-    for(int i = 0; i < window_size; i++)
+    cv::Mat img_edge_gray;
+    frames[0].GetImageEdge().convertTo(img_edge_gray, CV_8U);
+    cv::imwrite("idt_image.png", img_edge_gray);
+    
+    // 使用扰动后的外参投影到图像上，验证扰动是正确的，用于debug
+    // eigen_vector<Eigen::Matrix4f> perturb = PerturbCalibration(init_T_cl, 0.05, 0.01);
+    // for(int i = 0; i < perturb.size(); i++)
+    // {
+    //     cv::imwrite("cloud_" + int2str(i) + ".png", ProjectLidar2ImageRGB(*lidars[0].cloud, 
+    //         frames[0].GetImageGray(), frames[0].GetIntrinsic(), perturb[i], 0, 50));
+    // }
+    // return false;
+    
+    // 经过扰动后会有729个外参，每个外参在每张图像上都有一个Jc，因此一共会有 729 * window_size 个外参
+    // 当窗口向下移动一帧后，只有新加入的那一帧需要计算自己对应的Jc，窗口内其他帧的Jc都已经在上一次计算完毕了，直接使用就行了
+    // 为了符合这种操作流程，Jc使用一个矩阵来存储，矩阵尺寸为 window size x 729
+    cv::Mat Jc_all = cv::Mat::zeros(window_size, 729, CV_64F);
+    for(int idx = 0; idx <= frames.size() - window_size; idx++)
     {
-        const cv::Mat img_edge = frames[i].GetImageEdge();
-        for(int j = 0; j < perturb.size(); j++)
+        LOG(INFO) << "window : " << idx;
+        // 为了让结果复用，每次开始新的窗口后，就要把上一个窗口的后n-1个结果复制到当前结果的前n-1行
+        if(window_size > 1)
+            Jc_all.rowRange(1, window_size).copyTo(Jc_all.rowRange(0, window_size - 1));
+        int iter = 0;
+        double probability = 0;     // 当前外参是正确外参的可能性
+        double Fc = 0;
+        while(iter < max_iteration )
         {
-            Jc_list[j] += ComputeJc(*(lidars[i].cloud_discontinuity), frames[i], perturb[j]);
+            // 对外参进行扰动，扰动的结果中，第一个是没有经过扰动的
+            eigen_vector<Eigen::Matrix4f> perturb = PerturbCalibration(final_T_cl, 0.25, 0.01);
+            // start frame用来判断当前是否需要对窗口内所有的frame计算Jc，只有在两种情况下才需要全部计算
+            // 1. 当前迭代不是窗口内的第一次迭代，也就是 iter > 0
+            // 2. 现在是整个程序第一次运行，也就是 idx=0
+            int start_frame = 0;
+            if(idx == 0 || iter > 0)
+                start_frame = 0;
+            else 
+                start_frame = window_size - 1;
+            // 计算窗口内图像对应的Jc
+            for(int i = start_frame; i < window_size; i++)
+            {
+                const cv::Mat img_edge = frames[i + idx].GetImageEdge();
+                #pragma omp parallel for
+                for(int j = 0; j < perturb.size(); j++)
+                {
+                    double Jc = ComputeJc(*(lidars[i + idx].cloud_discontinuity), frames[i + idx], perturb[j]);
+                    #pragma omp critical
+                    {
+                        Jc_all.at<double>(i, j) = Jc;
+                    }
+                }
+            }
+            cv::Mat Jc_each_perturb = cv::Mat::zeros(1, 729, CV_64F);
+            // 把矩阵按列求和，得到扰动后的各个外参的Jc
+            cv::reduce(Jc_all, Jc_each_perturb, 0, CV_REDUCE_SUM);
+            int larger = 0, smaller = 0;
+            int largest_idx = 0;
+            double largest_Jc = 0;
+            for(int j = 0; j < Jc_each_perturb.cols; j++)
+            {
+                if(Jc_each_perturb.at<double>(0, j) > Jc_each_perturb.at<double>(0,0))
+                    larger ++;
+                else if(Jc_each_perturb.at<double>(0, j) < Jc_each_perturb.at<double>(0,0))
+                    smaller ++;
+                if(Jc_each_perturb.at<double>(0, j) > largest_Jc)
+                {
+                    largest_Jc = Jc_each_perturb.at<double>(0, j);
+                    largest_idx = j;
+                }
+            }
+            // Fc 是扰动后Jc变小的数目除以总的扰动数量
+            Fc = smaller / 728.0;
+            // probability = CorrectProbability(Fc);
+            probability = Fc;
+            LOG(INFO) << "iter: " << iter << "  probability: " << probability << " larger: " << larger << " smaller: " << smaller;
+            iter++;
+            if(probability >= 0.9)
+                break;
+            // 如果到了最后一次迭代，还没有找到当前的最佳结果，那也不更新外参了，把结果交给下一个窗口去找
+            if(iter != max_iteration)
+                final_T_cl = perturb[largest_idx];
         }
     }
-    double Fc = 0;
-    int larger = 0, smaller = 0;
-    for(const double& Jc : Jc_list)
-    {
-        if(Jc > Jc_list[0])
-            larger ++;
-        else if(Jc < Jc_list[0])
-            smaller++;
-    }
-    // Fc 是扰动后Jc变小的数目除以总的扰动数量
-    Fc = smaller / 728.0;
-    LOG(INFO) << "probobility: " << CorrectProbability(Fc);
+
+    cv::imwrite("edge_final.png", ProjectLidar2ImageRGB(*lidars[0].cloud_discontinuity, 
+            frames[0].GetImageGray(), frames[0].GetIntrinsic(), final_T_cl, 0, 50));
+    cv::imwrite("cloud_final.png", ProjectLidar2ImageRGB(*lidars[0].cloud, 
+            frames[0].GetImageGray(), frames[0].GetIntrinsic(), final_T_cl, 0, 50));
 
     return true;
 }
@@ -231,6 +306,7 @@ bool Calibrate::LoadEdgeImage(std::string path)
     for(int i = 0; i < min(edge_names.size(), frames.size()); i++)
     {
         frames[i].LoadEdgeImage(edge_names[i]);
+        // cv::imwrite("./" + int2str(i) + ".png", DepthImageRGB(frames[i].GetImageEdge(), 255, 0));
     }
     LOG(INFO) << "successfully load " << min(edge_names.size(), frames.size()) << " edge images";
     return true;

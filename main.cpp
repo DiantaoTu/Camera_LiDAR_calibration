@@ -47,34 +47,41 @@ int main(int argc, char** argv)
             -7.21062651e-03,  8.08119847e-03, -9.99941316e-01, -5.51710332e-02,
             9.99973865e-01,  4.85948581e-04, -7.20693369e-03, -2.88417104e-01,
             0.00000000e+00,  0.00000000e+00,  0.00000000e+00, 1.00000000e+00;
-
+    // 输出一下GT对应的轴角和平移，方便以后使用
     Eigen::AngleAxisf angleAxis_cl(T_cl.block<3,3>(0,0));
     Eigen::Vector3f t_cl = T_cl.block<3,1>(0,3);
-    cout << angleAxis_cl.axis().x() << " " << angleAxis_cl.axis().y() << " " << angleAxis_cl.axis().z() << " " 
+    LOG(INFO) << angleAxis_cl.axis().x() << " " << angleAxis_cl.axis().y() << " " << angleAxis_cl.axis().z() << " " 
         << angleAxis_cl.angle() << endl;
-    cout << t_cl.transpose() << endl;
+    LOG(INFO) << t_cl.transpose() << endl;
 
+    // 对外参进行一定程度的扰动
+    Eigen::Matrix4f delta_T = Eigen::Matrix4f::Identity();
+    delta_T.block<3,3>(0,0) = Eigen::Matrix3f(Eigen::AngleAxisf(1.f * M_PI / 180.f, Eigen::Vector3f(0,0,1)));
+    delta_T.block<3,1>(0,3) = Eigen::Vector3f(0, 0, 0);
+    T_cl = delta_T * T_cl;
+
+    // 读取图像
     vector<Frame> frames;
     for(int i = 0; i < image_names.size(); i++)
     {
-        if(i >= 10)
+        if(i >= 50)
             break;
         Frame f(image_names[i], i, K);
         frames.push_back(f);
-        
     }
+    // 读取雷达
     vector<Velodyne> lidars;
     for(int i = 0; i < lidar_names.size(); i++)
     {
-        if(i >= 10)
+        if(i >= 50)
             break;
         Velodyne l(64, i);
         l.SetName(lidar_names[i]);
-        lidars.push_back(l);
-        
+        lidars.push_back(l);  
     }
 
-    Calibrate calib(frames, lidars, 9);
+    // 标定
+    Calibrate calib(frames, lidars, 50);
     calib.SetInitCalibration(T_cl);
 
     calib.ExtractLidarFeatures();
@@ -82,7 +89,7 @@ int main(int argc, char** argv)
     // calib.ExtractImageFeatures();
     // calib.SaveEdgeImage("./edge_images/");
     calib.LoadEdgeImage("./edge_images/");
-    // return 0;
+  
 
     calib.StartCalibration();
     // t1 = chrono::high_resolution_clock::now();

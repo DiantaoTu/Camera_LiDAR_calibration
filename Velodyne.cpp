@@ -162,7 +162,7 @@ void Velodyne::ReOrderVLP()
         point.z = cloud->points[i].z;
         point.intensity = cloud->points[i].intensity;
 
-        float angle = atan(-point.y / sqrt(point.x * point.x + point.z * point.z)) * 180 / M_PI;
+        float angle = atan(point.z / sqrt(point.x * point.x + point.y * point.y)) * 180 / M_PI;
         int scanID = 0;
 
         if (N_SCANS == 16)
@@ -295,14 +295,6 @@ void Velodyne::ExtractFeatures()
     }
 
     int cloudSize = cloud_scan->points.size();
-    
-    if(cloud_scan->points.size() < cloudSize * 0.1)
-    {
-        LOG(WARNING) << "LiDAR data " << id << " has something wrong";
-        valid = false;
-        return;
-    }
-    cloudSize = cloud_scan->points.size();
 
     // 计算每个点到原点的距离, 保存成一个数组是为了后面方便
     float* cloudDistance;
@@ -315,21 +307,17 @@ void Velodyne::ExtractFeatures()
     }
 
     
-    
+    // 遍历所有的scan，找到深度不连续的点
     for (int i = 0; i < N_SCANS; i++)
     {
         if( scanEndInd[i] - scanStartInd[i] < 6)
             continue;
-        // 把一个scan分成连续的6段，每次只遍历其中一段  sp=start point  ep=end point
-        // j = 0  => sp = start                     ep = start + 1/6 * length - 1
-        // j = 1  => sp = start +  1/6 * length     ep = start + 2/6 * length - 1
-        // j = 2  => sp = start +  2/6 * length     ep = start + 3/6 * length - 1
-        for(int idx = scanStartInd[i] + 1; idx < scanEndInd[i]; idx++)
+        for(int idx = scanStartInd[i] + 1; idx < scanEndInd[i] - 1; idx++)
         {
             PointType point = cloud_scan->points[idx];
             float discontinue = max(cloudDistance[idx - 1] - cloudDistance[idx], 
                             max(cloudDistance[idx + 1] - cloudDistance[idx], 0.f));
-            if(discontinue < 0.3)
+            if(discontinue < 1.0)
                 continue;
             discontinue = sqrt(discontinue);
             point.intensity = discontinue;

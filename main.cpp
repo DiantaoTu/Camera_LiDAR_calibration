@@ -57,7 +57,7 @@ int main(int argc, char** argv)
     vector<Frame> frames;
     for(int i = 0; i < image_names.size(); i++)
     {
-        if(i >= 200)
+        if(i >= 10)
             break;
         Frame f(image_names[i], i, K);
         frames.push_back(f);
@@ -66,7 +66,7 @@ int main(int argc, char** argv)
     vector<Velodyne> lidars;
     for(int i = 0; i < lidar_names.size(); i++)
     {
-        if(i >= 200)
+        if(i >= 10)
             break;
         Velodyne l(64, i);
         l.SetName(lidar_names[i]);
@@ -74,15 +74,15 @@ int main(int argc, char** argv)
         
     }
 
-    Calibrate calib(frames, lidars, 1);
+    Calibrate calib(frames, lidars, 9);
     calib.SetInitCalibration(T_cl);
 
     calib.ExtractLidarFeatures();
 
-    calib.ExtractImageFeatures();
-    calib.SaveEdgeImage("./edge_images/");
+    // calib.ExtractImageFeatures();
+    // calib.SaveEdgeImage("./edge_images/");
     calib.LoadEdgeImage("./edge_images/");
-    return 0;
+    // return 0;
 
     calib.StartCalibration();
     // t1 = chrono::high_resolution_clock::now();

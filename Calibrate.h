@@ -33,7 +33,7 @@ private:
     eigen_vector<Eigen::Matrix4f> PerturbCalibration(const Eigen::Matrix4f& T_cl, 
                 const float rotation_step, const float translation_step);
     // 计算Jc，论文中的公式3
-    double ComputeJc(const pcl::PointCloud<pcl::PointXYZI>& cloud, const Frame& frame, const Eigen::Matrix4f& T_cl);
+    double ComputeJc(const pcl::PointCloud<pcl::PointXYZI>& cloud, Frame& frame, const Eigen::Matrix4f& T_cl);
     // 计算当前的外参是一个“正确”的外参的概率
     double CorrectProbability(double Fc);
 

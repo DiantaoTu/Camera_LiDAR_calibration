@@ -10,6 +10,7 @@
 #include <vector>
 #include <glog/logging.h>
 #include "Virtualization.h"
+#include "ProcessBar.h"
 
 class Frame
 {
@@ -37,6 +38,7 @@ public:
     cv::Mat GetImageGray() const;
     cv::Mat GetImageColor() const;
     const cv::Mat& GetImageEdge() const;
+    const Eigen::Matrix3f& GetIntrinsic() const;
     // 保存img edge到本地，因为计算edge比较耗时，所以计算一次之后就保存下来，方便debug用
     const void SaveEdgeImage(std::string path) const;
     // 从本地读取edge

@@ -119,7 +119,7 @@ cv::Mat ProjectLidar2ImageRGB(const pcl::PointCloud<T> cloud, const cv::Mat& ima
     bool high_res = (img_out.rows * img_out.cols > 1280 * 720);
     pcl::PointCloud<T> cloud_trans;
     pcl::transformPointCloud(cloud, cloud_trans, T_cl);
-    for(T p:cloud_trans.points)
+    for(const T& p:cloud_trans.points)
     {
         Eigen::Vector3f point(p.x, p.y, p.z);
         point = K * point;

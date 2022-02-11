@@ -137,6 +137,10 @@ const cv::Mat& Frame::GetImageEdge() const
     return img_edge;
 }
 
+const Eigen::Matrix3f& Frame::GetIntrinsic() const
+{
+    return K;
+}
 const void Frame::SaveEdgeImage(std::string path) const
 {
     string base = name;         //  /aaa/bbb/ccc.png

@@ -317,7 +317,7 @@ void Velodyne::ExtractFeatures()
             PointType point = cloud_scan->points[idx];
             float discontinue = max(cloudDistance[idx - 1] - cloudDistance[idx], 
                             max(cloudDistance[idx + 1] - cloudDistance[idx], 0.f));
-            if(discontinue < 1.0)
+            if(discontinue < 0.3)
                 continue;
             discontinue = sqrt(discontinue);
             point.intensity = discontinue;

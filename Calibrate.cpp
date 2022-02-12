@@ -188,7 +188,7 @@ double Calibrate::CorrectProbability(double Fc)
 
 bool Calibrate::StartCalibration()
 {
-    const int max_iteration = 10;
+    const int max_iteration = 30;
     final_T_cl = init_T_cl;
     cv::Mat depth_image = ProjectLidar2ImageRGB(*lidars[0].cloud_discontinuity, 
             frames[0].GetImageGray(), frames[0].GetIntrinsic(), init_T_cl, 0, 50);
@@ -225,7 +225,7 @@ bool Calibrate::StartCalibration()
         while(iter < max_iteration )
         {
             // 对外参进行扰动，扰动的结果中，第一个是没有经过扰动的
-            eigen_vector<Eigen::Matrix4f> perturb = PerturbCalibration(final_T_cl, 0.25, 0.01);
+            eigen_vector<Eigen::Matrix4f> perturb = PerturbCalibration(final_T_cl, 0.1, 0.01);
             // start frame用来判断当前是否需要对窗口内所有的frame计算Jc，只有在两种情况下才需要全部计算
             // 1. 当前迭代不是窗口内的第一次迭代，也就是 iter > 0
             // 2. 现在是整个程序第一次运行，也就是 idx=0

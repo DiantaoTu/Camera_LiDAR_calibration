@@ -16,12 +16,6 @@
 
 using namespace std;
 
-enum LIDAR_TYPE{
-    UNKNOWN = 0,
-    LIVOX = 1,
-    VLP = 2
-};
-
 template<typename T>
 using eigen_vector = std::vector<T, Eigen::aligned_allocator<T>>;
 template<typename Key, typename Value>

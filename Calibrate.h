@@ -18,7 +18,11 @@
 class Calibrate
 {
 private:
-    const int window_size;
+    const int window_size;          // 标定时使用的窗口大小
+    const int max_iteration;        // 每个窗口最多迭代次数
+    const float prob_threshold;     // 超过这个值就认为标定是准确的，停止当前窗口内的迭代
+    const float rot_step;           // 扰动时旋转的角度，度为单位
+    const float trans_step;         // 扰动时平移的距离，米为单位
     std::vector<Frame> frames;
     std::vector<Velodyne> lidars;
     Eigen::Matrix4f init_T_cl;
@@ -38,7 +42,9 @@ private:
     double CorrectProbability(double Fc);
 
 public:
-    Calibrate(const std::vector<Frame>& _frames, const std::vector<Velodyne>& _lidars, const int _window_size=9);
+    Calibrate(const std::vector<Frame>& _frames, const std::vector<Velodyne>& _lidars, 
+            const int _window_size=9, const int _max_iter=30, const float _prob_threshold=0.9,
+            const float _rot_step=0.1, const float _trans_step=0.005);
     
     bool ExtractLidarFeatures();
     bool ExtractImageFeatures();

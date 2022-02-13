@@ -3,6 +3,7 @@
  * @Date: 2022-02-09 16:09:42
  */
 #include "Frame.h"
+#include <omp.h>
 
 using namespace std;
 Frame::Frame(std::string _name, int _id, Eigen::Matrix3f _K):name(_name),id(_id),K(_K)
@@ -37,7 +38,7 @@ bool Frame::EdgeFilter()
             img_edge.at<float>(row, col) = max(abs(max_value - curr_value), abs(min_value - curr_value));
         }
     // 可视化edge image，这里用了显示深度图的方法，因为可以把edge image当做深度图，最小深度为0，最大深度为255
-    cv::imwrite("./edge_image.png", DepthImageRGB(img_edge, 255, 0));
+    cv::imwrite("./edge_image.png", img_edge);
     return true;
 }
 
@@ -51,7 +52,12 @@ bool Frame::InverseDistanceTransform(const int max_half_window_size, const int m
     cv::Mat img_idt = cv::Mat::zeros(img_edge.rows, img_edge.cols, CV_32F);
     const float alpha = 1.f / 3.f;
     const float gamma = 0.98;
-    
+    // 预先计算好gamma的n次方的结果
+    vector<float> gamma_pow(max(img_idt.rows, img_idt.cols));
+    for(int i = 0; i < gamma_pow.size(); i++)
+    {
+        gamma_pow[i] = pow(gamma, i);
+    }
     for(int row = 0; row < img_idt.rows; row++)
     {
         for(int col = 0; col < img_idt.cols; col++)
@@ -67,7 +73,7 @@ bool Frame::InverseDistanceTransform(const int max_half_window_size, const int m
             {
                 for(int j = window_border[1]; j <= window_border[3]; j++)
                 {
-                    float edginess = img_edge.at<float>(i,j) * pow(gamma, max(abs(i - row), abs(j - col)));
+                    float edginess = img_edge.at<float>(i,j) * gamma_pow[ max(abs(i - row), abs(j - col))];
                     if(edginess > max_edge)
                         max_edge = edginess;
                 }
@@ -76,7 +82,9 @@ bool Frame::InverseDistanceTransform(const int max_half_window_size, const int m
         }
     }
     // 可视化 idt 之后的结果
-    cv::imwrite("./idt_image.png", DepthImageRGB(img_idt, 255, 0));
+    cv::Mat img_edge_gray;
+    img_idt.convertTo(img_edge_gray, CV_8U);
+    cv::imwrite("idt_image.png", img_edge_gray);
     // 更新idt的结果
     img_edge = img_idt;
     return true;

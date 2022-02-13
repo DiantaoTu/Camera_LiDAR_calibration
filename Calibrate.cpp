@@ -6,11 +6,16 @@
 
 using namespace std;
 
-Calibrate::Calibrate(const std::vector<Frame>& _frames, const std::vector<Velodyne>& _lidars, const int _window_size):
-    frames(_frames), lidars(_lidars), window_size(_window_size)
+Calibrate::Calibrate(const std::vector<Frame>& _frames, const std::vector<Velodyne>& _lidars, 
+                    const int _window_size, const int _max_iter, const float _prob_threshold,
+                    const float _rot_step, const float _trans_step):
+    frames(_frames), lidars(_lidars), window_size(_window_size), max_iteration(_max_iter), prob_threshold(_prob_threshold),
+    rot_step(_rot_step), trans_step(_trans_step)
 {
     init_T_cl = Eigen::Matrix4f::Identity();
     final_T_cl = Eigen::Matrix4f::Identity();
+    LOG(INFO) << "Calibration init: window size = " << window_size << ", probability threshold = " << prob_threshold << 
+                ", rotation step = " << rot_step << " degree, translation step = " << trans_step << " m";
 }
 
 bool Calibrate::ExtractImageFeatures()
@@ -28,7 +33,7 @@ bool Calibrate::ExtractImageFeatures()
     for(Frame& f : frames)
     {
         f.EdgeFilter();
-        f.InverseDistanceTransform(120, 3);
+        f.InverseDistanceTransform(150, 3);
         bar.Add();
     }
     return true;
@@ -188,7 +193,6 @@ double Calibrate::CorrectProbability(double Fc)
 
 bool Calibrate::StartCalibration()
 {
-    const int max_iteration = 30;
     final_T_cl = init_T_cl;
     cv::Mat depth_image = ProjectLidar2ImageRGB(*lidars[0].cloud_discontinuity, 
             frames[0].GetImageGray(), frames[0].GetIntrinsic(), init_T_cl, 0, 50);
@@ -199,16 +203,7 @@ bool Calibrate::StartCalibration()
     cv::Mat img_edge_gray;
     frames[0].GetImageEdge().convertTo(img_edge_gray, CV_8U);
     cv::imwrite("idt_image.png", img_edge_gray);
-    
-    // 使用扰动后的外参投影到图像上，验证扰动是正确的，用于debug
-    // eigen_vector<Eigen::Matrix4f> perturb = PerturbCalibration(init_T_cl, 0.05, 0.01);
-    // for(int i = 0; i < perturb.size(); i++)
-    // {
-    //     cv::imwrite("cloud_" + int2str(i) + ".png", ProjectLidar2ImageRGB(*lidars[0].cloud, 
-    //         frames[0].GetImageGray(), frames[0].GetIntrinsic(), perturb[i], 0, 50));
-    // }
-    // return false;
-    
+        
     // 经过扰动后会有729个外参，每个外参在每张图像上都有一个Jc，因此一共会有 729 * window_size 个外参
     // 当窗口向下移动一帧后，只有新加入的那一帧需要计算自己对应的Jc，窗口内其他帧的Jc都已经在上一次计算完毕了，直接使用就行了
     // 为了符合这种操作流程，Jc使用一个矩阵来存储，矩阵尺寸为 window size x 729
@@ -225,7 +220,7 @@ bool Calibrate::StartCalibration()
         while(iter < max_iteration )
         {
             // 对外参进行扰动，扰动的结果中，第一个是没有经过扰动的
-            eigen_vector<Eigen::Matrix4f> perturb = PerturbCalibration(final_T_cl, 0.1, 0.01);
+            eigen_vector<Eigen::Matrix4f> perturb = PerturbCalibration(final_T_cl, rot_step, trans_step);
             // start frame用来判断当前是否需要对窗口内所有的frame计算Jc，只有在两种情况下才需要全部计算
             // 1. 当前迭代不是窗口内的第一次迭代，也就是 iter > 0
             // 2. 现在是整个程序第一次运行，也就是 idx=0
@@ -272,7 +267,7 @@ bool Calibrate::StartCalibration()
             probability = Fc;
             LOG(INFO) << "iter: " << iter << "  probability: " << probability << " larger: " << larger << " smaller: " << smaller;
             iter++;
-            if(probability >= 0.9)
+            if(probability >= prob_threshold)
                 break;
             // 如果到了最后一次迭代，还没有找到当前的最佳结果，那也不更新外参了，把结果交给下一个窗口去找
             if(iter != max_iteration)

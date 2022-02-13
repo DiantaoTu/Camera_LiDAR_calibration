@@ -20,11 +20,16 @@ void CalibrationError(const Eigen::Matrix4f& T_cl1, const Eigen::Matrix4f& T_cl2
 
 int main(int argc, char** argv)
 {
-    string lidar_data_path = "/home/tdt/Data_tdt/kitti_03/images/lidar/";
-    string image_data_path = "/home/tdt/Data_tdt/kitti_03/images/image_2/";
-    string edge_image_path = "/home/tdt/Data_tdt/kitti_03/other_images/edge_images/";
+    string lidar_data_path = "/home/tdt/Data_tdt/kitti_08/images/lidar/";
+    string image_data_path = "/home/tdt/Data_tdt/kitti_08/images/image_2/";
+    string edge_image_path = "/home/tdt/Data_tdt/kitti_08/other_images/edge_images/";
     string log_path = "./log/";
     SetLog(log_path);
+
+    const int max_iteration = 30;
+    const float probability = 0.95;
+    const float rotation_step = 0.1;
+    const float translation_step = 0.001;
 
     vector<string> lidar_names, image_names;
     IterateFiles(lidar_data_path, lidar_names, ".pcd");
@@ -65,16 +70,16 @@ int main(int argc, char** argv)
     //       0.000000000000e+00, 7.215377000000e+02, 1.728540000000e+02, 2.163791000000e-01, 
     //       0.000000000000e+00, 0.000000000000e+00, 1.000000000000e+00, 2.745884000000e-03;
     // kitti 04-12
-    // K << 707.0912, 0, 601.887,
-    //     0, 707.0912, 183.11,
-    //     0, 0, 1;
-    // T_rl << -1.857739385241e-03, -9.999659513510e-01, -8.039975204516e-03, -4.784029760483e-03, 
-    //         -6.481465826011e-03, 8.051860151134e-03, -9.999466081774e-01, -7.337429464231e-02, 
-    //         9.999773098287e-01, -1.805528627661e-03, -6.496203536139e-03, -3.339968064433e-01,
-    //         0, 0, 0, 1;
-    // P2 << 7.070912000000e+02, 0.000000000000e+00, 6.018873000000e+02, 4.688783000000e+01, 
-    //       0.000000000000e+00, 7.070912000000e+02, 1.831104000000e+02, 1.178601000000e-01, 
-    //       0.000000000000e+00, 0.000000000000e+00, 1.000000000000e+00, 6.203223000000e-03;    
+    K << 707.0912, 0, 601.887,
+        0, 707.0912, 183.11,
+        0, 0, 1;
+    T_rl << -1.857739385241e-03, -9.999659513510e-01, -8.039975204516e-03, -4.784029760483e-03, 
+            -6.481465826011e-03, 8.051860151134e-03, -9.999466081774e-01, -7.337429464231e-02, 
+            9.999773098287e-01, -1.805528627661e-03, -6.496203536139e-03, -3.339968064433e-01,
+            0, 0, 0, 1;
+    P2 << 7.070912000000e+02, 0.000000000000e+00, 6.018873000000e+02, 4.688783000000e+01, 
+          0.000000000000e+00, 7.070912000000e+02, 1.831104000000e+02, 1.178601000000e-01, 
+          0.000000000000e+00, 0.000000000000e+00, 1.000000000000e+00, 6.203223000000e-03;    
 
     // [R|t]
     Eigen::Matrix<float, 3, 4> Rt = K.inverse() * P2;
@@ -110,7 +115,7 @@ int main(int argc, char** argv)
     vector<Frame> frames;
     for(int i = 0; i < image_names.size(); i++)
     {
-        if(i >= 350)
+        if(i >= 400)
             break;
         Frame f(image_names[i], i, K);
         frames.push_back(f);
@@ -119,7 +124,7 @@ int main(int argc, char** argv)
     vector<Velodyne> lidars;
     for(int i = 0; i < lidar_names.size(); i++)
     {
-        if(i >= 350)
+        if(i >= 400)
             break;
         Velodyne l(64, i);
         l.SetName(lidar_names[i]);
@@ -127,13 +132,18 @@ int main(int argc, char** argv)
     }
 
     // 标定
-    Calibrate calib(frames, lidars, 350);
+    Calibrate calib(frames, lidars, 400, max_iteration, probability, rotation_step, translation_step);
     calib.SetInitCalibration(T_cl_init);
 
     calib.ExtractLidarFeatures();
 
+    // t1 = chrono::high_resolution_clock::now();
     // calib.ExtractImageFeatures();
-    // calib.SaveEdgeImage("./edge_images/");
+    // t2 = chrono::high_resolution_clock::now();
+    // LOG(INFO) << "time spent: " <<  chrono::duration_cast<chrono::duration<double> >(t2 - t1).count() << " s";
+    // calib.SaveEdgeImage(edge_image_path);
+    // return 0;
+    
     calib.LoadEdgeImage(edge_image_path);
   
     calib.StartCalibration();
@@ -147,6 +157,11 @@ int main(int argc, char** argv)
     LOG(INFO) << "translation: " << t_cl.x() << " " << t_cl.y() << " " << t_cl.z() << endl;
 
     CalibrationError(T_cl, T_cl_final);
+
+    // 保存一下用GT得到的结果作为对比
+    pcl::PointCloud<pcl::PointXYZI> cloud;
+    pcl::io::loadPCDFile(lidars[0].name, cloud);
+    cv::imwrite("cloud_gt.png", ProjectLidar2ImageRGB(cloud, frames[0].GetImageGray(), K, T_cl, 0, 50));
 
     return 0;
 }

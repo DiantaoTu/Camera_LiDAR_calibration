@@ -32,6 +32,7 @@ public:
     Frame(std::string _name, int _id, Eigen::Matrix3f _K = Eigen::Matrix3f::Identity());
     bool EdgeFilter();
     bool InverseDistanceTransform(const int max_half_window_size, const int min_half_window_size);
+    bool InverseDistanceTransform2(const int max_half_window_size, const int min_half_window_size);
     // 点从相机坐标系到图像坐标系的投影，区别在于返回的是整数还是小数
     cv::Point2i Camera2Imagei(const Eigen::Vector3f& p);
     cv::Point2f Camera2Imagef(const Eigen::Vector3f& p);
